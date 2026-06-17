@@ -101,6 +101,8 @@ static PyDescriptorPool* _CreateDescriptorPool() {
   cpool->database = nullptr;
   cpool->is_owned = false;
   cpool->is_mutable = false;
+  cpool->shared_pool = nullptr;
+  cpool->shared_database = nullptr;
 
   cpool->descriptor_options = new absl::flat_hash_map<const void*, PyObject*>();
   cpool->descriptor_features =
@@ -215,9 +217,16 @@ static void Dealloc(PyObject* pself) {
   }
   delete self->descriptor_features;
   delete self->cache_mutex;
-  delete self->database;
   if (self->is_owned) {
     delete self->pool;
+  }
+  if (self->shared_pool != nullptr) {
+    delete self->shared_pool;
+  }
+  if (self->shared_database != nullptr) {
+    delete self->shared_database;
+  } else {
+    delete self->database;
   }
   delete self->error_collector;
   PyObject_GC_UnTrack(pself);
@@ -752,6 +761,47 @@ PyObject* PyDescriptorPool_FromPool(const DescriptorPool* pool) {
     if (!descriptor_pool_map->insert(std::make_pair(cpool->pool, cpool))
              .second) {
       // Should never happen -- We already checked the existence above.
+      PyErr_SetString(PyExc_ValueError, "DescriptorPool already registered");
+      return nullptr;
+    }
+  }
+
+  return reinterpret_cast<PyObject*>(cpool);
+}
+
+PyObject* PyDescriptorPool_FromSharedPool(
+    std::shared_ptr<const DescriptorPool> pool,
+    std::shared_ptr<const DescriptorDatabase> database) {
+  if (pool == nullptr) {
+    PyErr_SetString(PyExc_ValueError, "DescriptorPool is null");
+    return nullptr;
+  }
+  PyDescriptorPool* existing_pool = GetDescriptorPool_FromPool(pool.get());
+  if (existing_pool != nullptr) {
+    Py_INCREF(existing_pool);
+    return reinterpret_cast<PyObject*>(existing_pool);
+  } else {
+    PyErr_Clear();
+  }
+
+  PyDescriptorPool* cpool = cdescriptor_pool::_CreateDescriptorPool();
+  if (cpool == nullptr) {
+    return nullptr;
+  }
+  cpool->pool = pool.get();
+  cpool->database = database.get();
+  cpool->shared_pool = new std::shared_ptr<const DescriptorPool>(pool);
+  if (database != nullptr) {
+    cpool->shared_database =
+        new std::shared_ptr<const DescriptorDatabase>(database);
+  }
+  cpool->is_owned = false;
+  cpool->is_mutable = false;
+  cpool->underlay = nullptr;
+  {
+    FreeThreadingLockGuard lock(descriptor_pool_map_mutex);
+    if (!descriptor_pool_map->insert(std::make_pair(cpool->pool, cpool))
+             .second) {
       PyErr_SetString(PyExc_ValueError, "DescriptorPool already registered");
       return nullptr;
     }

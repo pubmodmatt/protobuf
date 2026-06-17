@@ -387,6 +387,12 @@ struct ApiImplementation : google::protobuf::python::PyProto_API {
       const google::protobuf::DescriptorPool* pool) const override {
     return google::protobuf::python::PyDescriptorPool_FromPool(pool);
   }
+  PyObject* DescriptorPool_FromSharedPool(
+      std::shared_ptr<const google::protobuf::DescriptorPool> pool,
+      std::shared_ptr<const google::protobuf::DescriptorDatabase> database)
+      const override {
+    return google::protobuf::python::PyDescriptorPool_FromSharedPool(pool, database);
+  }
   PyObject* DescriptorPool_FromPool(
       std::unique_ptr<const google::protobuf::DescriptorPool> pool,
       std::unique_ptr<const google::protobuf::DescriptorDatabase> database)

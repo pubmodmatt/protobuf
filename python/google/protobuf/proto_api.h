@@ -149,6 +149,14 @@ struct PyProto_API {
   virtual PyObject* DescriptorPool_FromPool(
       const google::protobuf::DescriptorPool* pool) const = 0;
 
+  // Wraps a C++ descriptor pool (held by shared_ptr) in a Python object.
+  // The Python object extends the lifetime of the C++ pool and optional
+  // database.
+  virtual PyObject* DescriptorPool_FromSharedPool(
+      std::shared_ptr<const google::protobuf::DescriptorPool> pool,
+      std::shared_ptr<const google::protobuf::DescriptorDatabase> database =
+          nullptr) const = 0;
+
   // Takes ownership of a C++ DescriptorPool and returns a Python DescriptorPool
   // that wraps it.
   // The optional google::protobuf::DescriptorDatabase will also be owned by the Python

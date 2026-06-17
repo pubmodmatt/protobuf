@@ -77,6 +77,11 @@ typedef struct PyDescriptorPool {
 
   // Mutex protecting the caching maps above.
   FreeThreadingMutex* cache_mutex;
+
+  // The shared_ptr to keep the C++ pool and database alive if created via the
+  // new shared_ptr API.
+  std::shared_ptr<const DescriptorPool>* shared_pool;
+  std::shared_ptr<const DescriptorDatabase>* shared_database;
 } PyDescriptorPool;
 
 extern PyTypeObject PyDescriptorPool_Type;
@@ -125,6 +130,12 @@ PyDescriptorPool* GetDescriptorPool_FromPool(const DescriptorPool* pool);
 // Wraps a C++ descriptor pool in a Python object, creates it if necessary.
 // Returns a new reference.
 PyObject* PyDescriptorPool_FromPool(const DescriptorPool* pool);
+
+// Wraps a C++ descriptor pool (held by shared_ptr) in a Python object.
+// The Python object extends the lifetime of the C++ pool and optional database.
+PyObject* PyDescriptorPool_FromSharedPool(
+    std::shared_ptr<const DescriptorPool> pool,
+    std::shared_ptr<const DescriptorDatabase> database = nullptr);
 
 // Takes ownership of a C++ DescriptorPool and returns a new Python
 // DescriptorPool that wraps it.
